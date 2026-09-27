@@ -686,4 +686,713 @@ public class MainActivity extends Activity {
                                 .apply();
 
                         recreate();
-                   
+                    }
+                }
+        );
+
+        FrameLayout.LayoutParams params =
+                new FrameLayout.LayoutParams(
+                        dp(230),
+                        dp(68),
+                        Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL
+                );
+
+        params.setMargins(
+                dp(10),
+                dp(10),
+                dp(10),
+                dp(22)
+        );
+
+        scene.addView(dock, params);
+    }
+
+    private TextView dockButton(
+            String text) {
+
+        TextView button =
+                new TextView(this);
+
+        button.setText(text);
+        button.setTextSize(24);
+        button.setGravity(Gravity.CENTER);
+        button.setTextColor(Color.WHITE);
+
+        button.setBackground(
+                iconBackground()
+        );
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        dp(52),
+                        dp(52)
+                );
+
+        params.setMargins(
+                dp(3),
+                0,
+                dp(3),
+                0
+        );
+
+        button.setLayoutParams(params);
+
+        return button;
+    }
+
+    private void animateDockButton(
+            View view) {
+
+        view.animate()
+                .scaleX(0.82f)
+                .scaleY(0.82f)
+                .setDuration(80)
+                .start();
+
+        view.postDelayed(
+                new Runnable() {
+                    @Override
+                    public void run() {
+
+                        view.animate()
+                                .scaleX(1f)
+                                .scaleY(1f)
+                                .setDuration(180)
+                                .setInterpolator(
+                                        new DecelerateInterpolator()
+                                )
+                                .start();
+                    }
+                },
+                80
+        );
+    }
+
+    private void loadApps() {
+
+        allApps.clear();
+
+        Intent launcherIntent =
+                new Intent(Intent.ACTION_MAIN);
+
+        launcherIntent.addCategory(
+                Intent.CATEGORY_LAUNCHER
+        );
+
+        List<ResolveInfo> results =
+                pm.queryIntentActivities(
+                        launcherIntent,
+                        0
+                );
+
+        for (ResolveInfo info : results) {
+
+            if (info.activityInfo == null) {
+                continue;
+            }
+
+            String packageName =
+                    info.activityInfo.packageName;
+
+            String name =
+                    info.loadLabel(pm).toString();
+
+            Drawable icon =
+                    info.loadIcon(pm);
+
+            Intent launch =
+                    new Intent(
+                            Intent.ACTION_MAIN
+                    );
+
+            launch.addCategory(
+                    Intent.CATEGORY_LAUNCHER
+            );
+
+            launch.setClassName(
+                    packageName,
+                    info.activityInfo.name
+            );
+
+            allApps.add(
+                    new AppItem(
+                            name,
+                            packageName,
+                            icon,
+                            launch
+                    )
+            );
+        }
+
+        Collections.sort(
+                allApps,
+                new Comparator<AppItem>() {
+
+                    @Override
+                    public int compare(
+                            AppItem a,
+                            AppItem b) {
+
+                        return a.name.compareToIgnoreCase(
+                                b.name
+                        );
+                    }
+                }
+        );
+
+        showApps("");
+    }
+
+    private void showApps(
+            String query) {
+
+        if (appGrid == null) {
+            return;
+        }
+
+        appGrid.removeAllViews();
+
+        String search =
+                query == null
+                        ? ""
+                        : query.trim().toLowerCase(
+                                Locale.getDefault()
+                        );
+
+        ArrayList<AppItem> filtered =
+                new ArrayList<>();
+
+        for (AppItem item : allApps) {
+
+            if (search.length() == 0
+                    || item.name.toLowerCase(
+                            Locale.getDefault()
+                    ).contains(search)) {
+
+                filtered.add(item);
+            }
+        }
+
+        int columns = 4;
+
+        LinearLayout row = null;
+
+        for (int i = 0;
+                i < filtered.size();
+                i++) {
+
+            if (i % columns == 0) {
+
+                row =
+                        new LinearLayout(this);
+
+                row.setOrientation(
+                        LinearLayout.HORIZONTAL
+                );
+
+                row.setGravity(
+                        Gravity.CENTER
+                );
+
+                appGrid.addView(
+                        row,
+                        new LinearLayout.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                dp(116)
+                        )
+                );
+            }
+
+            View card =
+                    create3DIcon(
+                            filtered.get(i)
+                    );
+
+            LinearLayout.LayoutParams params =
+                    new LinearLayout.LayoutParams(
+                            0,
+                            dp(108),
+                            1
+                    );
+
+            params.setMargins(
+                    dp(3),
+                    dp(4),
+                    dp(3),
+                    dp(4)
+            );
+
+            row.addView(card, params);
+        }
+
+        if (filtered.isEmpty()) {
+
+            TextView empty =
+                    new TextView(this);
+
+            empty.setText(
+                    "Nothing found in Sunny UI"
+            );
+
+            empty.setTextSize(15);
+            empty.setTextColor(Color.WHITE);
+            empty.setGravity(Gravity.CENTER);
+
+            appGrid.addView(
+                    empty,
+                    new LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            dp(100)
+                    )
+            );
+        }
+    }
+
+    private View create3DIcon(
+            final AppItem app) {
+
+        LinearLayout card =
+                new LinearLayout(this);
+
+        card.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        card.setGravity(
+                Gravity.CENTER
+        );
+
+        card.setPadding(
+                dp(6),
+                dp(5),
+                dp(6),
+                dp(5)
+        );
+
+        card.setBackground(
+                glassBackground(24)
+        );
+
+        card.setElevation(
+                dp(10)
+        );
+
+        FrameLayout iconFrame =
+                new FrameLayout(this);
+
+        GradientDrawable outer =
+                new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        new int[] {
+                                Color.argb(
+                                        120,
+                                        255,
+                                        255,
+                                        255
+                                ),
+                                Color.argb(
+                                        55,
+                                        255,
+                                        255,
+                                        255
+                                ),
+                                Color.argb(
+                                        35,
+                                        30,
+                                        40,
+                                        70
+                                )
+                        }
+                );
+
+        outer.setCornerRadius(
+                dp(21)
+        );
+
+        outer.setStroke(
+                dp(1),
+                Color.argb(
+                        145,
+                        255,
+                        255,
+                        255
+                )
+        );
+
+        iconFrame.setBackground(outer);
+        iconFrame.setElevation(dp(9));
+
+        ImageView icon =
+                new ImageView(this);
+
+        icon.setImageDrawable(
+                app.icon
+        );
+
+        icon.setScaleType(
+                ImageView.ScaleType.FIT_CENTER
+        );
+
+        FrameLayout.LayoutParams iconParams =
+                new FrameLayout.LayoutParams(
+                        dp(48),
+                        dp(48),
+                        Gravity.CENTER
+                );
+
+        iconFrame.addView(
+                icon,
+                iconParams
+        );
+
+        TextView shine =
+                new TextView(this);
+
+        shine.setText(" ");
+        shine.setBackground(
+                highlightBackground()
+        );
+
+        FrameLayout.LayoutParams shineParams =
+                new FrameLayout.LayoutParams(
+                        dp(38),
+                        dp(10),
+                        Gravity.TOP | Gravity.CENTER_HORIZONTAL
+                );
+
+        shineParams.topMargin =
+                dp(4);
+
+        iconFrame.addView(
+                shine,
+                shineParams
+        );
+
+        LinearLayout.LayoutParams frameParams =
+                new LinearLayout.LayoutParams(
+                        dp(62),
+                        dp(62)
+                );
+
+        card.addView(
+                iconFrame,
+                frameParams
+        );
+
+        TextView name =
+                new TextView(this);
+
+        name.setText(app.name);
+        name.setTextSize(10);
+        name.setGravity(Gravity.CENTER);
+        name.setTextColor(Color.WHITE);
+        name.setMaxLines(1);
+
+        LinearLayout.LayoutParams nameParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(22)
+                );
+
+        card.addView(
+                name,
+                nameParams
+        );
+
+        card.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        launchApp(app);
+                    }
+                }
+        );
+
+        card.setOnTouchListener(
+                new View.OnTouchListener() {
+
+                    @Override
+                    public boolean onTouch(
+                            View v,
+                            MotionEvent event) {
+
+                        if (event.getAction()
+                                == MotionEvent.ACTION_DOWN) {
+
+                            v.animate()
+                                    .scaleX(0.91f)
+                                    .scaleY(0.91f)
+                                    .translationY(
+                                            dp(3)
+                                    )
+                                    .setDuration(90)
+                                    .start();
+
+                        } else if (
+                                event.getAction()
+                                        == MotionEvent.ACTION_UP
+                                        ||
+                                event.getAction()
+                                        == MotionEvent.ACTION_CANCEL
+                        ) {
+
+                            v.animate()
+                                    .scaleX(1f)
+                                    .scaleY(1f)
+                                    .translationY(0)
+                                    .setDuration(180)
+                                    .setInterpolator(
+                                            new DecelerateInterpolator()
+                                    )
+                                    .start();
+                        }
+
+                        return false;
+                    }
+                }
+        );
+
+        return card;
+    }
+
+    private GradientDrawable glassBackground(
+            int radius) {
+
+        GradientDrawable glass =
+                new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        new int[] {
+
+                                darkMode
+                                        ? Color.argb(
+                                                80,
+                                                15,
+                                                20,
+                                                35
+                                        )
+                                        : Color.argb(
+                                                68,
+                                                255,
+                                                255,
+                                                255
+                                        ),
+
+                                darkMode
+                                        ? Color.argb(
+                                                42,
+                                                100,
+                                                120,
+                                                170
+                                        )
+                                        : Color.argb(
+                                                35,
+                                                255,
+                                                255,
+                                                255
+                                        ),
+
+                                darkMode
+                                        ? Color.argb(
+                                                70,
+                                                5,
+                                                10,
+                                                20
+                                        )
+                                        : Color.argb(
+                                                42,
+                                                255,
+                                                255,
+                                                255
+                                        )
+                        }
+                );
+
+        glass.setCornerRadius(
+                dp(radius)
+        );
+
+        glass.setStroke(
+                dp(1),
+                Color.argb(
+                        105,
+                        255,
+                        255,
+                        255
+                )
+        );
+
+        return glass;
+    }
+
+    private GradientDrawable iconBackground() {
+
+        GradientDrawable bg =
+                new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        new int[] {
+                                Color.argb(
+                                        105,
+                                        255,
+                                        255,
+                                        255
+                                ),
+                                Color.argb(
+                                        40,
+                                        255,
+                                        255,
+                                        255
+                                )
+                        }
+                );
+
+        bg.setCornerRadius(
+                dp(19)
+        );
+
+        bg.setStroke(
+                dp(1),
+                Color.argb(
+                        120,
+                        255,
+                        255,
+                        255
+                )
+        );
+
+        return bg;
+    }
+
+    private GradientDrawable highlightBackground() {
+
+        GradientDrawable highlight =
+                new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        new int[] {
+                                Color.argb(
+                                        125,
+                                        255,
+                                        255,
+                                        255
+                                ),
+                                Color.argb(
+                                        0,
+                                        255,
+                                        255,
+                                        255
+                                )
+                        }
+                );
+
+        highlight.setCornerRadius(
+                dp(8)
+        );
+
+        return highlight;
+    }
+
+    private void launchApp(
+            AppItem app) {
+
+        try {
+
+            startActivity(
+                    app.intent
+            );
+
+        } catch (Exception e) {
+
+            Toast.makeText(
+                    this,
+                    "Unable to open " + app.name,
+                    Toast.LENGTH_SHORT
+            ).show();
+        }
+    }
+
+    private void updateClock() {
+
+        if (clockView == null) {
+            return;
+        }
+
+        String time =
+                new SimpleDateFormat(
+                        "HH:mm",
+                        Locale.getDefault()
+                ).format(
+                        new Date()
+                );
+
+        String date =
+                new SimpleDateFormat(
+                        "EEEE  •  dd MMMM",
+                        Locale.getDefault()
+                ).format(
+                        new Date()
+                );
+
+        clockView.setText(time);
+        dateView.setText(date);
+
+        handler.postDelayed(
+                new Runnable() {
+                    @Override
+                    public void run() {
+                        updateClock();
+                    }
+                },
+                1000
+        );
+    }
+
+    private int dp(int value) {
+
+        float density =
+                getResources()
+                        .getDisplayMetrics()
+                        .density;
+
+        return (int)
+                (value * density + 0.5f);
+    }
+
+    @Override
+    protected void onResume() {
+
+        super.onResume();
+
+        if (pm != null) {
+            loadApps();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+
+        super.onDestroy();
+
+        handler.removeCallbacksAndMessages(
+                null
+        );
+    }
+
+    private static class AppItem {
+
+        String name;
+        String packageName;
+        Drawable icon;
+        Intent intent;
+
+        AppItem(
+                String name,
+                String packageName,
+                Drawable icon,
+                Intent intent) {
+
+            this.name = name;
+            this.packageName = packageName;
+            this.icon = icon;
+            this.intent = intent;
+        }
+    }
+}
