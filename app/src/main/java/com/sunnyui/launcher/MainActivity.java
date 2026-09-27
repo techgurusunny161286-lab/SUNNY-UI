@@ -4,13 +4,17 @@ import android.app.Activity;
 import android.os.Bundle;
 import android.os.Handler;
 import android.content.Intent;
-import android.content.pm.ApplicationInfo;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.Drawable;
 import android.view.Gravity;
 import android.view.View;
-import android.view.MotionEvent;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -19,6 +23,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -30,20 +35,22 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
 
+    private LinearLayout root;
     private LinearLayout appGrid;
     private EditText searchBox;
     private TextView clockView;
     private TextView dateView;
-    private TextView batteryView;
+    private TextView modeButton;
 
     private PackageManager pm;
-    private final List<ApplicationInfo> allApps = new ArrayList<>();
-    private final Handler handler = new Handler();
+    private Handler handler = new Handler();
 
-    private int dp(int value) {
-        return (int) (value *
-                getResources().getDisplayMetrics().density + 0.5f);
-    }
+    private ArrayList<AppItem> allApps = new ArrayList<>();
+
+    private boolean darkMode = false;
+
+    private final int LIGHT_BG = Color.rgb(244, 247, 252);
+    private final int DARK_BG = Color.rgb(12, 15, 22);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,182 +58,195 @@ public class MainActivity extends Activity {
 
         pm = getPackageManager();
 
-        buildUI();
-        loadApps();
-        showApps("");
+        SharedPreferences pref =
+                getSharedPreferences("sunny_ui", MODE_PRIVATE);
 
+        darkMode = pref.getBoolean("dark", false);
+
+        setupWindow();
+        createInterface();
+        loadApps();
         updateTime();
     }
 
-    private void buildUI() {
+    private void setupWindow() {
 
-        LinearLayout root = new LinearLayout(this);
+        Window window = getWindow();
+
+        if (darkMode) {
+            window.setStatusBarColor(DARK_BG);
+            window.setNavigationBarColor(DARK_BG);
+        } else {
+            window.setStatusBarColor(Color.WHITE);
+            window.setNavigationBarColor(Color.WHITE);
+        }
+
+        window.setSoftInputMode(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        );
+    }
+
+    private void createInterface() {
+
+        root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(18), dp(16), dp(10));
+        root.setPadding(dp(18), dp(18), dp(18), dp(12));
 
-        GradientDrawable bg = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{
-                        Color.rgb(245, 243, 255),
-                        Color.rgb(228, 235, 255),
-                        Color.rgb(247, 241, 255)
-                }
+        root.setBackgroundColor(
+                darkMode ? DARK_BG : LIGHT_BG
         );
 
-        root.setBackground(bg);
+        setContentView(root);
 
-        // TOP BAR
-        LinearLayout topBar = new LinearLayout(this);
-        topBar.setOrientation(LinearLayout.HORIZONTAL);
-        topBar.setGravity(Gravity.CENTER_VERTICAL);
+        createTopBar();
+        createClock();
+        createSearch();
+        createAppArea();
+        createFooter();
+    }
 
-        LinearLayout titleBox = new LinearLayout(this);
-        titleBox.setOrientation(LinearLayout.VERTICAL);
+    private void createTopBar() {
+
+        LinearLayout bar = new LinearLayout(this);
+        bar.setOrientation(LinearLayout.HORIZONTAL);
+        bar.setGravity(Gravity.CENTER_VERTICAL);
 
         TextView title = new TextView(this);
         title.setText("SUNNY UI");
-        title.setTextSize(27);
-        title.setTextColor(Color.rgb(25, 25, 35));
+        title.setTextSize(25);
         title.setTypeface(null, 1);
+        title.setTextColor(textColor());
+
+        LinearLayout.LayoutParams titleParams =
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1
+                );
+
+        bar.addView(title, titleParams);
+
+        modeButton = new TextView(this);
+        modeButton.setText(darkMode ? "☀" : "☾");
+        modeButton.setTextSize(22);
+        modeButton.setGravity(Gravity.CENTER);
+
+        GradientDrawable modeBg = roundedBackground(
+                darkMode
+                        ? Color.rgb(35, 40, 52)
+                        : Color.WHITE,
+                Color.argb(40, 0, 0, 0),
+                50
+        );
+
+        modeButton.setBackground(modeBg);
+        modeButton.setPadding(
+                dp(13), dp(8), dp(13), dp(8)
+        );
+
+        modeButton.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        toggleMode();
+                    }
+                }
+        );
+
+        bar.addView(modeButton);
+
+        root.addView(bar);
+    }
+
+    private void createClock() {
+
+        LinearLayout clockBox = new LinearLayout(this);
+        clockBox.setOrientation(LinearLayout.VERTICAL);
+        clockBox.setGravity(Gravity.CENTER);
+        clockBox.setPadding(
+                dp(8),
+                dp(22),
+                dp(8),
+                dp(20)
+        );
+
+        clockView = new TextView(this);
+        clockView.setTextSize(48);
+        clockView.setTypeface(null, 1);
+        clockView.setGravity(Gravity.CENTER);
+        clockView.setTextColor(textColor());
+
+        clockBox.addView(clockView);
+
+        dateView = new TextView(this);
+        dateView.setTextSize(15);
+        dateView.setGravity(Gravity.CENTER);
+        dateView.setTextColor(
+                darkMode
+                        ? Color.rgb(180, 188, 202)
+                        : Color.rgb(100, 108, 120)
+        );
+
+        clockBox.addView(dateView);
 
         TextView subtitle = new TextView(this);
         subtitle.setText("Premium Android Experience");
-        subtitle.setTextSize(11);
-        subtitle.setTextColor(Color.rgb(100, 100, 115));
+        subtitle.setTextSize(13);
+        subtitle.setGravity(Gravity.CENTER);
+        subtitle.setPadding(0, dp(6), 0, 0);
+        subtitle.setTextColor(
+                darkMode
+                        ? Color.rgb(135, 145, 165)
+                        : Color.rgb(120, 128, 140)
+        );
 
-        titleBox.addView(title);
-        titleBox.addView(subtitle);
+        clockBox.addView(subtitle);
 
-        topBar.addView(titleBox,
-                new LinearLayout.LayoutParams(
-                        0, dp(58), 1
-                ));
+        root.addView(clockBox);
+    }
 
-        batteryView = new TextView(this);
-        batteryView.setText("🔋");
-        batteryView.setTextSize(17);
-        batteryView.setGravity(Gravity.CENTER);
+    private void createSearch() {
 
-        topBar.addView(batteryView,
-                new LinearLayout.LayoutParams(
-                        dp(55), dp(50)
-                ));
-
-        root.addView(topBar);
-
-        // CLOCK
-        clockView = new TextView(this);
-        clockView.setTextSize(42);
-        clockView.setTextColor(Color.rgb(35, 35, 50));
-        clockView.setGravity(Gravity.CENTER);
-        clockView.setTypeface(null, 1);
-
-        root.addView(clockView,
-                new LinearLayout.LayoutParams(
-                        -1, dp(62)
-                ));
-
-        // DATE
-        dateView = new TextView(this);
-        dateView.setTextSize(13);
-        dateView.setTextColor(Color.rgb(105, 105, 120));
-        dateView.setGravity(Gravity.CENTER);
-
-        root.addView(dateView,
-                new LinearLayout.LayoutParams(
-                        -1, dp(26)
-                ));
-
-        // SEARCH
         searchBox = new EditText(this);
-        searchBox.setHint("Search apps...");
+
         searchBox.setSingleLine(true);
-        searchBox.setTextSize(15);
-        searchBox.setPadding(
-                dp(18), 0, dp(18), 0
-        );
-
-        searchBox.setTextColor(Color.DKGRAY);
+        searchBox.setTextSize(16);
+        searchBox.setHint("Search apps...");
         searchBox.setHintTextColor(
-                Color.rgb(130, 130, 145)
+                darkMode
+                        ? Color.rgb(145, 150, 160)
+                        : Color.rgb(125, 130, 140)
         );
 
-        GradientDrawable searchBg = new GradientDrawable();
-        searchBg.setColor(
-                Color.argb(110, 255, 255, 255)
+        searchBox.setTextColor(textColor());
+        searchBox.setPadding(
+                dp(18),
+                dp(4),
+                dp(18),
+                dp(4)
         );
-        searchBg.setCornerRadius(dp(30));
-        searchBg.setStroke(
-                dp(1),
-                Color.argb(100, 255, 255, 255)
+
+        GradientDrawable searchBg = roundedBackground(
+                darkMode
+                        ? Color.rgb(28, 33, 43)
+                        : Color.WHITE,
+                darkMode
+                        ? Color.rgb(55, 62, 76)
+                        : Color.rgb(225, 229, 237),
+                32
         );
 
         searchBox.setBackground(searchBg);
 
-        LinearLayout.LayoutParams searchParams =
+        LinearLayout.LayoutParams params =
                 new LinearLayout.LayoutParams(
-                        -1, dp(52)
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(54)
                 );
 
-        searchParams.setMargins(
-                0, dp(8), 0, dp(12)
-        );
+        params.setMargins(0, 0, 0, dp(18));
 
-        root.addView(searchBox, searchParams);
-
-        // QUICK ACTIONS
-        LinearLayout quick = new LinearLayout(this);
-        quick.setOrientation(LinearLayout.HORIZONTAL);
-        quick.setGravity(Gravity.CENTER);
-
-        quick.addView(createQuickButton(
-                "⚙", "Settings"
-        ));
-
-        quick.addView(createQuickButton(
-                "📁", "Files"
-        ));
-
-        quick.addView(createQuickButton(
-                "📷", "Camera"
-        ));
-
-        root.addView(quick,
-                new LinearLayout.LayoutParams(
-                        -1, dp(55)
-                ));
-
-        // APPS
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-
-        appGrid = new LinearLayout(this);
-        appGrid.setOrientation(LinearLayout.VERTICAL);
-
-        scroll.addView(appGrid);
-
-        root.addView(scroll,
-                new LinearLayout.LayoutParams(
-                        -1, 0, 1
-                ));
-
-        // FOOTER
-        TextView footer = new TextView(this);
-        footer.setText(
-                "Sunny UI  •  Designed for Android  •  V5"
-        );
-        footer.setTextSize(10);
-        footer.setTextColor(
-                Color.rgb(130, 130, 145)
-        );
-        footer.setGravity(Gravity.CENTER);
-
-        root.addView(footer,
-                new LinearLayout.LayoutParams(
-                        -1, dp(28)
-                ));
-
-        setContentView(root);
+        root.addView(searchBox, params);
 
         searchBox.addTextChangedListener(
                 new TextWatcher() {
@@ -257,201 +277,235 @@ public class MainActivity extends Activity {
         );
     }
 
-    private View createQuickButton(
-            String icon,
-            String label) {
+    private void createAppArea() {
 
-        TextView button = new TextView(this);
+        ScrollView scroll = new ScrollView(this);
 
-        button.setText(
-                icon + "  " + label
+        scroll.setFillViewport(true);
+        scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+
+        appGrid = new LinearLayout(this);
+        appGrid.setOrientation(LinearLayout.VERTICAL);
+
+        scroll.addView(
+                appGrid,
+                new ScrollView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
         );
 
-        button.setTextSize(11);
-        button.setGravity(Gravity.CENTER);
-        button.setTextColor(
-                Color.rgb(60, 60, 75)
-        );
-
-        GradientDrawable bg =
-                new GradientDrawable();
-
-        bg.setColor(
-                Color.argb(85, 255, 255, 255)
-        );
-
-        bg.setCornerRadius(dp(22));
-
-        button.setBackground(bg);
-
-        LinearLayout.LayoutParams p =
+        LinearLayout.LayoutParams scrollParams =
                 new LinearLayout.LayoutParams(
-                        0, dp(44), 1
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        0,
+                        1
                 );
 
-        p.setMargins(
-                dp(3), 0, dp(3), 0
+        root.addView(scroll, scrollParams);
+    }
+
+    private void createFooter() {
+
+        TextView footer = new TextView(this);
+
+        footer.setText(
+                "Sunny UI  •  Designed for Android  •  V6"
         );
 
-        button.setLayoutParams(p);
+        footer.setTextSize(12);
+        footer.setGravity(Gravity.CENTER);
+        footer.setPadding(0, dp(12), 0, dp(4));
 
-        if (label.equals("Settings")) {
-            button.setOnClickListener(v ->
-                    launchPackage(
-                            "com.android.settings"
-                    )
-            );
-        }
+        footer.setTextColor(
+                darkMode
+                        ? Color.rgb(125, 135, 150)
+                        : Color.rgb(125, 132, 145)
+        );
 
-        if (label.equals("Files")) {
-            button.setOnClickListener(v -> {
-                Intent i = new Intent(
-                        Intent.ACTION_OPEN_DOCUMENT
-                );
-                i.setType("*/*");
-                i.addCategory(
-                        Intent.CATEGORY_OPENABLE
-                );
-                startActivity(i);
-            });
-        }
-
-        if (label.equals("Camera")) {
-            button.setOnClickListener(v -> {
-                Intent i = new Intent(
-                        "android.media.action.IMAGE_CAPTURE"
-                );
-                try {
-                    startActivity(i);
-                } catch (Exception ignored) {
-                }
-            });
-        }
-
-        return button;
+        root.addView(footer);
     }
 
     private void loadApps() {
 
-        Intent intent = new Intent(
-                Intent.ACTION_MAIN
-        );
-
-        intent.addCategory(
-                Intent.CATEGORY_LAUNCHER
-        );
-
-        List<android.content.pm.ResolveInfo> results =
-                pm.queryIntentActivities(
-                        intent, 0
-                );
-
         allApps.clear();
 
-        for (android.content.pm.ResolveInfo info
-                : results) {
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LAUNCHER);
 
-            ApplicationInfo app =
-                    info.activityInfo.applicationInfo;
+        List<ResolveInfo> results =
+                pm.queryIntentActivities(intent, 0);
 
-            if (!allApps.contains(app)) {
-                allApps.add(app);
+        for (ResolveInfo info : results) {
+
+            if (info.activityInfo == null) {
+                continue;
+            }
+
+            String packageName =
+                    info.activityInfo.packageName;
+
+            String label =
+                    info.loadLabel(pm).toString();
+
+            Drawable icon =
+                    info.loadIcon(pm);
+
+            Intent launchIntent =
+                    new Intent(Intent.ACTION_MAIN);
+
+            launchIntent.addCategory(
+                    Intent.CATEGORY_LAUNCHER
+            );
+
+            launchIntent.setPackage(packageName);
+
+            List<ResolveInfo> launchers =
+                    pm.queryIntentActivities(
+                            launchIntent,
+                            0
+                    );
+
+            if (!launchers.isEmpty()) {
+
+                ResolveInfo launcher =
+                        launchers.get(0);
+
+                Intent finalIntent =
+                        new Intent(Intent.ACTION_MAIN);
+
+                finalIntent.addCategory(
+                        Intent.CATEGORY_LAUNCHER
+                );
+
+                finalIntent.setClassName(
+                        packageName,
+                        launcher.activityInfo.name
+                );
+
+                allApps.add(
+                        new AppItem(
+                                label,
+                                packageName,
+                                icon,
+                                finalIntent
+                        )
+                );
             }
         }
 
         Collections.sort(
                 allApps,
-                new Comparator<ApplicationInfo>() {
-
+                new Comparator<AppItem>() {
                     @Override
                     public int compare(
-                            ApplicationInfo a,
-                            ApplicationInfo b) {
+                            AppItem a,
+                            AppItem b) {
 
-                        return pm
-                                .getApplicationLabel(a)
-                                .toString()
-                                .compareToIgnoreCase(
-                                        pm.getApplicationLabel(b)
-                                                .toString()
-                                );
+                        return a.name.compareToIgnoreCase(
+                                b.name
+                        );
                     }
                 }
         );
+
+        showApps("");
     }
 
     private void showApps(String query) {
 
+        if (appGrid == null) {
+            return;
+        }
+
         appGrid.removeAllViews();
 
-        String q = query.toLowerCase(
-                Locale.getDefault()
-        );
+        String search =
+                query == null
+                        ? ""
+                        : query.trim().toLowerCase(
+                                Locale.getDefault()
+                        );
+
+        ArrayList<AppItem> filtered =
+                new ArrayList<>();
+
+        for (AppItem app : allApps) {
+
+            if (search.length() == 0
+                    || app.name.toLowerCase(
+                            Locale.getDefault()
+                    ).contains(search)) {
+
+                filtered.add(app);
+            }
+        }
+
+        int columns = 3;
 
         LinearLayout row = null;
-        int count = 0;
 
-        for (ApplicationInfo app : allApps) {
+        for (int i = 0; i < filtered.size(); i++) {
 
-            String name =
-                    pm.getApplicationLabel(app)
-                            .toString();
-
-            if (!name.toLowerCase(
-                    Locale.getDefault()
-            ).contains(q)) {
-                continue;
-            }
-
-            if (count % 3 == 0) {
+            if (i % columns == 0) {
 
                 row = new LinearLayout(this);
                 row.setOrientation(
                         LinearLayout.HORIZONTAL
                 );
 
-                row.setGravity(
-                        Gravity.CENTER
-                );
+                row.setGravity(Gravity.CENTER);
 
                 appGrid.addView(
                         row,
                         new LinearLayout.LayoutParams(
-                                -1, dp(108)
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.WRAP_CONTENT
                         )
                 );
             }
 
-            row.addView(
-                    createAppCard(app),
+            View card =
+                    createAppCard(filtered.get(i));
+
+            LinearLayout.LayoutParams cardParams =
                     new LinearLayout.LayoutParams(
-                            0, dp(100), 1
-                    )
+                            0,
+                            dp(128),
+                            1
+                    );
+
+            cardParams.setMargins(
+                    dp(5),
+                    dp(5),
+                    dp(5),
+                    dp(5)
             );
 
-            count++;
+            row.addView(card, cardParams);
         }
 
-        if (count == 0) {
+        if (filtered.isEmpty()) {
 
             TextView empty = new TextView(this);
 
             empty.setText("No apps found");
             empty.setTextSize(16);
-            empty.setTextColor(Color.GRAY);
             empty.setGravity(Gravity.CENTER);
+            empty.setTextColor(textColor());
 
-            appGrid.addView(
-                    empty,
-                    new LinearLayout.LayoutParams(
-                            -1, dp(100)
-                    )
+            empty.setPadding(
+                    0,
+                    dp(50),
+                    0,
+                    dp(50)
             );
+
+            appGrid.addView(empty);
         }
     }
 
-    private View createAppCard(
-            final ApplicationInfo app) {
+    private View createAppCard(final AppItem app) {
 
         LinearLayout card =
                 new LinearLayout(this);
@@ -460,73 +514,77 @@ public class MainActivity extends Activity {
                 LinearLayout.VERTICAL
         );
 
-        card.setGravity(
-                Gravity.CENTER
-        );
-
-        GradientDrawable glass =
-                new GradientDrawable();
-
-        glass.setColor(
-                Color.argb(105, 255, 255, 255)
-        );
-
-        glass.setCornerRadius(dp(25));
-
-        glass.setStroke(
-                dp(1),
-                Color.argb(90, 255, 255, 255)
-        );
-
-        card.setBackground(glass);
+        card.setGravity(Gravity.CENTER);
 
         card.setPadding(
-                dp(5), dp(7),
-                dp(5), dp(5)
+                dp(8),
+                dp(10),
+                dp(8),
+                dp(8)
         );
+
+        GradientDrawable background =
+                roundedBackground(
+                        darkMode
+                                ? Color.rgb(27, 32, 42)
+                                : Color.WHITE,
+                        darkMode
+                                ? Color.rgb(55, 62, 76)
+                                : Color.rgb(225, 229, 237),
+                        24
+                );
+
+        card.setBackground(background);
+        card.setElevation(dp(5));
 
         ImageView icon =
                 new ImageView(this);
 
-        icon.setImageDrawable(
-                pm.getApplicationIcon(app)
+        icon.setImageDrawable(app.icon);
+        icon.setScaleType(
+                ImageView.ScaleType.FIT_CENTER
         );
 
-        card.addView(
-                icon,
+        LinearLayout.LayoutParams iconParams =
                 new LinearLayout.LayoutParams(
-                        dp(44), dp(44)
-                )
-        );
+                        dp(50),
+                        dp(50)
+                );
+
+        card.addView(icon, iconParams);
 
         TextView name =
                 new TextView(this);
 
-        name.setText(
-                pm.getApplicationLabel(app)
-                        .toString()
-        );
+        name.setText(app.name);
+        name.setTextSize(12);
+        name.setGravity(Gravity.CENTER);
+        name.setMaxLines(2);
+        name.setTextColor(textColor());
 
-        name.setTextSize(11);
-        name.setTextColor(
-                Color.rgb(45, 45, 55)
-        );
-
-        name.setGravity(
-                Gravity.CENTER
-        );
-
-        name.setMaxLines(1);
-
-        card.addView(
-                name,
+        LinearLayout.LayoutParams nameParams =
                 new LinearLayout.LayoutParams(
-                        -1, dp(30)
-                )
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        nameParams.setMargins(
+                0,
+                dp(8),
+                0,
+                0
         );
+
+        card.addView(name, nameParams);
 
         card.setOnClickListener(
-                v -> launchApp(app)
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+
+                        launchApp(app);
+                    }
+                }
         );
 
         card.setOnTouchListener(
@@ -535,15 +593,15 @@ public class MainActivity extends Activity {
                     @Override
                     public boolean onTouch(
                             View v,
-                            MotionEvent event) {
+                            android.view.MotionEvent event) {
 
                         if (event.getAction()
-                                == MotionEvent.ACTION_DOWN) {
+                                == android.view.MotionEvent.ACTION_DOWN) {
 
                             v.animate()
-                                    .scaleX(.93f)
-                                    .scaleY(.93f)
-                                    .setDuration(80)
+                                    .scaleX(0.94f)
+                                    .scaleY(0.94f)
+                                    .setDuration(100)
                                     .setInterpolator(
                                             new DecelerateInterpolator()
                                     )
@@ -551,15 +609,19 @@ public class MainActivity extends Activity {
 
                         } else if (
                                 event.getAction()
-                                        == MotionEvent.ACTION_UP
+                                        == android.view.MotionEvent.ACTION_UP
                                         ||
                                 event.getAction()
-                                        == MotionEvent.ACTION_CANCEL) {
+                                        == android.view.MotionEvent.ACTION_CANCEL
+                        ) {
 
                             v.animate()
                                     .scaleX(1f)
                                     .scaleY(1f)
-                                    .setDuration(120)
+                                    .setDuration(150)
+                                    .setInterpolator(
+                                            new DecelerateInterpolator()
+                                    )
                                     .start();
                         }
 
@@ -571,46 +633,42 @@ public class MainActivity extends Activity {
         return card;
     }
 
-    private void launchApp(
-            ApplicationInfo app) {
+    private void launchApp(AppItem app) {
 
         try {
 
-            Intent intent =
-                    pm.getLaunchIntentForPackage(
-                            app.packageName
-                    );
+            startActivity(app.intent);
 
-            if (intent != null) {
-                intent.addFlags(
-                        Intent.FLAG_ACTIVITY_NEW_TASK
-                );
-                startActivity(intent);
-            }
+        } catch (Exception e) {
 
-        } catch (Exception ignored) {
+            Toast.makeText(
+                    this,
+                    "Unable to open " + app.name,
+                    Toast.LENGTH_SHORT
+            ).show();
         }
     }
 
-    private void launchPackage(
-            String packageName) {
+    private void toggleMode() {
 
-        try {
+        darkMode = !darkMode;
 
-            Intent intent =
-                    pm.getLaunchIntentForPackage(
-                            packageName
-                    );
+        getSharedPreferences(
+                "sunny_ui",
+                MODE_PRIVATE
+        )
+                .edit()
+                .putBoolean("dark", darkMode)
+                .apply();
 
-            if (intent != null) {
-                startActivity(intent);
-            }
-
-        } catch (Exception ignored) {
-        }
+        recreate();
     }
 
     private void updateTime() {
+
+        if (clockView == null) {
+            return;
+        }
 
         String time =
                 new SimpleDateFormat(
@@ -624,17 +682,11 @@ public class MainActivity extends Activity {
                         Locale.getDefault()
                 ).format(new Date());
 
-        if (clockView != null) {
-            clockView.setText(time);
-        }
-
-        if (dateView != null) {
-            dateView.setText(date);
-        }
+        clockView.setText(time);
+        dateView.setText(date);
 
         handler.postDelayed(
                 new Runnable() {
-
                     @Override
                     public void run() {
                         updateTime();
@@ -644,20 +696,87 @@ public class MainActivity extends Activity {
         );
     }
 
+    private GradientDrawable roundedBackground(
+            int fill,
+            int stroke,
+            int radius) {
+
+        GradientDrawable drawable =
+                new GradientDrawable();
+
+        drawable.setColor(fill);
+        drawable.setCornerRadius(dp(radius));
+
+        drawable.setStroke(
+                dp(1),
+                stroke
+        );
+
+        return drawable;
+    }
+
+    private int textColor() {
+
+        return darkMode
+                ? Color.WHITE
+                : Color.rgb(30, 35, 45);
+    }
+
+    private int dp(int value) {
+
+        float density =
+                getResources()
+                        .getDisplayMetrics()
+                        .density;
+
+        return (int) (
+                value * density + 0.5f
+        );
+    }
+
     @Override
     protected void onResume() {
 
         super.onResume();
 
         if (pm != null) {
+
             loadApps();
 
             if (searchBox != null) {
+
                 showApps(
-                        searchBox.getText()
-                                .toString()
+                        searchBox.getText().toString()
                 );
             }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+
+        super.onDestroy();
+
+        handler.removeCallbacksAndMessages(null);
+    }
+
+    private static class AppItem {
+
+        String name;
+        String packageName;
+        Drawable icon;
+        Intent intent;
+
+        AppItem(
+                String name,
+                String packageName,
+                Drawable icon,
+                Intent intent) {
+
+            this.name = name;
+            this.packageName = packageName;
+            this.icon = icon;
+            this.intent = intent;
         }
     }
 }
