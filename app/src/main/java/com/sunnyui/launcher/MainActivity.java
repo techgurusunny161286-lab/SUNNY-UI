@@ -1,6 +1,8 @@
 package com.sunnyui.launcher;
 
 import android.app.Activity;
+import android.app.WallpaperManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.content.Intent;
@@ -8,15 +10,19 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Color;
-import android.graphics.drawable.GradientDrawable;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -35,218 +41,434 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
 
-    private LinearLayout root;
+    private FrameLayout scene;
+    private LinearLayout content;
     private LinearLayout appGrid;
     private EditText searchBox;
+
     private TextView clockView;
     private TextView dateView;
-    private TextView modeButton;
+    private TextView greetingView;
 
     private PackageManager pm;
     private Handler handler = new Handler();
 
-    private ArrayList<AppItem> allApps = new ArrayList<>();
+    private ArrayList<AppItem> allApps =
+            new ArrayList<>();
 
     private boolean darkMode = false;
 
-    private final int LIGHT_BG = Color.rgb(244, 247, 252);
-    private final int DARK_BG = Color.rgb(12, 15, 22);
+    private int whiteGlass =
+            Color.argb(48, 255, 255, 255);
+
+    private int darkGlass =
+            Color.argb(62, 10, 15, 25);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
 
         pm = getPackageManager();
 
-        SharedPreferences pref =
-                getSharedPreferences("sunny_ui", MODE_PRIVATE);
+        SharedPreferences preferences =
+                getSharedPreferences(
+                        "sunny_v7",
+                        MODE_PRIVATE
+                );
 
-        darkMode = pref.getBoolean("dark", false);
+        darkMode =
+                preferences.getBoolean(
+                        "dark",
+                        false
+                );
 
         setupWindow();
-        createInterface();
+        buildVisionUI();
         loadApps();
-        updateTime();
+        updateClock();
     }
 
     private void setupWindow() {
 
         Window window = getWindow();
 
-        if (darkMode) {
-            window.setStatusBarColor(DARK_BG);
-            window.setNavigationBarColor(DARK_BG);
-        } else {
-            window.setStatusBarColor(Color.WHITE);
-            window.setNavigationBarColor(Color.WHITE);
-        }
+        window.setStatusBarColor(
+                Color.TRANSPARENT
+        );
+
+        window.setNavigationBarColor(
+                Color.TRANSPARENT
+        );
+
+        window.setFlags(
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        );
 
         window.setSoftInputMode(
                 WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
         );
     }
 
-    private void createInterface() {
+    private void buildVisionUI() {
 
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(18), dp(18), dp(12));
+        scene = new FrameLayout(this);
 
-        root.setBackgroundColor(
-                darkMode ? DARK_BG : LIGHT_BG
+        scene.setBackgroundColor(
+                Color.rgb(18, 20, 28)
         );
 
-        setContentView(root);
+        setContentView(scene);
 
-        createTopBar();
-        createClock();
-        createSearch();
-        createAppArea();
-        createFooter();
+        createWallpaperLayer();
+        createGlowLayer();
+        createMainContent();
+        createFloatingDock();
     }
 
-    private void createTopBar() {
+    private void createWallpaperLayer() {
 
-        LinearLayout bar = new LinearLayout(this);
-        bar.setOrientation(LinearLayout.HORIZONTAL);
-        bar.setGravity(Gravity.CENTER_VERTICAL);
+        ImageView wallpaper =
+                new ImageView(this);
 
-        TextView title = new TextView(this);
-        title.setText("SUNNY UI");
-        title.setTextSize(25);
-        title.setTypeface(null, 1);
-        title.setTextColor(textColor());
+        wallpaper.setScaleType(
+                ImageView.ScaleType.CENTER_CROP
+        );
 
-        LinearLayout.LayoutParams titleParams =
+        try {
+
+            Drawable drawable =
+                    WallpaperManager
+                            .getInstance(this)
+                            .getDrawable();
+
+            wallpaper.setImageDrawable(drawable);
+
+        } catch (Exception e) {
+
+            wallpaper.setBackgroundColor(
+                    Color.rgb(32, 38, 55)
+            );
+        }
+
+        if (Build.VERSION.SDK_INT >= 31) {
+
+            wallpaper.setRenderEffect(
+                    RenderEffect.createBlurEffect(
+                            20f,
+                            20f,
+                            Shader.TileMode.CLAMP
+                    )
+            );
+        }
+
+        FrameLayout.LayoutParams params =
+                new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                );
+
+        scene.addView(wallpaper, params);
+    }
+
+    private void createGlowLayer() {
+
+        View glow =
+                new View(this);
+
+        GradientDrawable gradient =
+                new GradientDrawable(
+                        GradientDrawable.Orientation.TL_BR,
+                        new int[] {
+                                Color.argb(90, 120, 90, 255),
+                                Color.argb(45, 40, 180, 255),
+                                Color.argb(20, 255, 255, 255),
+                                Color.argb(70, 255, 90, 180)
+                        }
+                );
+
+        glow.setBackground(gradient);
+
+        FrameLayout.LayoutParams params =
+                new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                );
+
+        scene.addView(glow, params);
+    }
+
+    private void createMainContent() {
+
+        content =
+                new LinearLayout(this);
+
+        content.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        content.setPadding(
+                dp(20),
+                dp(42),
+                dp(20),
+                dp(120)
+        );
+
+        ScrollView scroll =
+                new ScrollView(this);
+
+        scroll.setFillViewport(true);
+        scroll.setBackgroundColor(
+                Color.TRANSPARENT
+        );
+
+        scroll.addView(
+                content,
+                new ScrollView.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
+
+        FrameLayout.LayoutParams params =
+                new FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                );
+
+        scene.addView(scroll, params);
+
+        createHeader();
+        createClock();
+        createSearch();
+        createAppsTitle();
+        createAppArea();
+    }
+
+    private void createHeader() {
+
+        LinearLayout header =
+                new LinearLayout(this);
+
+        header.setOrientation(
+                LinearLayout.HORIZONTAL
+        );
+
+        header.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        TextView logo =
+                new TextView(this);
+
+        logo.setText("SUNNY");
+        logo.setTextSize(27);
+        logo.setTypeface(null, 1);
+        logo.setTextColor(Color.WHITE);
+        logo.setLetterSpacing(0.08f);
+
+        header.addView(
+                logo,
                 new LinearLayout.LayoutParams(
                         0,
                         ViewGroup.LayoutParams.WRAP_CONTENT,
                         1
-                );
-
-        bar.addView(title, titleParams);
-
-        modeButton = new TextView(this);
-        modeButton.setText(darkMode ? "☀" : "☾");
-        modeButton.setTextSize(22);
-        modeButton.setGravity(Gravity.CENTER);
-
-        GradientDrawable modeBg = roundedBackground(
-                darkMode
-                        ? Color.rgb(35, 40, 52)
-                        : Color.WHITE,
-                Color.argb(40, 0, 0, 0),
-                50
+                )
         );
 
-        modeButton.setBackground(modeBg);
-        modeButton.setPadding(
-                dp(13), dp(8), dp(13), dp(8)
+        TextView vision =
+                new TextView(this);
+
+        vision.setText("VISION");
+        vision.setTextSize(11);
+        vision.setTypeface(null, 1);
+        vision.setTextColor(
+                Color.argb(220, 255, 255, 255)
+        );
+        vision.setGravity(Gravity.CENTER);
+
+        vision.setPadding(
+                dp(15),
+                dp(9),
+                dp(15),
+                dp(9)
         );
 
-        modeButton.setOnClickListener(
-                new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        toggleMode();
-                    }
-                }
+        vision.setBackground(
+                glassBackground(42)
         );
 
-        bar.addView(modeButton);
+        header.addView(vision);
 
-        root.addView(bar);
+        content.addView(header);
     }
 
     private void createClock() {
 
-        LinearLayout clockBox = new LinearLayout(this);
-        clockBox.setOrientation(LinearLayout.VERTICAL);
-        clockBox.setGravity(Gravity.CENTER);
-        clockBox.setPadding(
-                dp(8),
-                dp(22),
-                dp(8),
+        LinearLayout box =
+                new LinearLayout(this);
+
+        box.setOrientation(
+                LinearLayout.VERTICAL
+        );
+
+        box.setGravity(Gravity.CENTER);
+
+        box.setPadding(
+                dp(10),
+                dp(28),
+                dp(10),
                 dp(20)
         );
 
-        clockView = new TextView(this);
-        clockView.setTextSize(48);
+        clockView =
+                new TextView(this);
+
+        clockView.setTextSize(54);
         clockView.setTypeface(null, 1);
+        clockView.setTextColor(Color.WHITE);
         clockView.setGravity(Gravity.CENTER);
-        clockView.setTextColor(textColor());
+        clockView.setLetterSpacing(-0.02f);
 
-        clockBox.addView(clockView);
+        box.addView(clockView);
 
-        dateView = new TextView(this);
-        dateView.setTextSize(15);
-        dateView.setGravity(Gravity.CENTER);
+        dateView =
+                new TextView(this);
+
+        dateView.setTextSize(14);
         dateView.setTextColor(
-                darkMode
-                        ? Color.rgb(180, 188, 202)
-                        : Color.rgb(100, 108, 120)
+                Color.argb(220, 255, 255, 255)
         );
 
-        clockBox.addView(dateView);
+        dateView.setGravity(Gravity.CENTER);
 
-        TextView subtitle = new TextView(this);
-        subtitle.setText("Premium Android Experience");
-        subtitle.setTextSize(13);
-        subtitle.setGravity(Gravity.CENTER);
-        subtitle.setPadding(0, dp(6), 0, 0);
-        subtitle.setTextColor(
-                darkMode
-                        ? Color.rgb(135, 145, 165)
-                        : Color.rgb(120, 128, 140)
+        box.addView(dateView);
+
+        greetingView =
+                new TextView(this);
+
+        greetingView.setText(
+                "A new way to experience Android"
         );
 
-        clockBox.addView(subtitle);
+        greetingView.setTextSize(13);
+        greetingView.setGravity(Gravity.CENTER);
+        greetingView.setTextColor(
+                Color.argb(175, 255, 255, 255)
+        );
 
-        root.addView(clockBox);
+        LinearLayout.LayoutParams greetingParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        greetingParams.setMargins(
+                0,
+                dp(7),
+                0,
+                0
+        );
+
+        box.addView(
+                greetingView,
+                greetingParams
+        );
+
+        content.addView(box);
     }
 
     private void createSearch() {
 
-        searchBox = new EditText(this);
+        FrameLayout searchContainer =
+                new FrameLayout(this);
+
+        searchContainer.setBackground(
+                glassBackground(30)
+        );
+
+        searchContainer.setPadding(
+                dp(5),
+                dp(3),
+                dp(5),
+                dp(3)
+        );
+
+        TextView searchIcon =
+                new TextView(this);
+
+        searchIcon.setText("⌕");
+        searchIcon.setTextSize(25);
+        searchIcon.setTextColor(Color.WHITE);
+        searchIcon.setGravity(Gravity.CENTER);
+
+        FrameLayout.LayoutParams iconParams =
+                new FrameLayout.LayoutParams(
+                        dp(48),
+                        dp(52),
+                        Gravity.START | Gravity.CENTER_VERTICAL
+                );
+
+        searchContainer.addView(
+                searchIcon,
+                iconParams
+        );
+
+        searchBox =
+                new EditText(this);
 
         searchBox.setSingleLine(true);
         searchBox.setTextSize(16);
-        searchBox.setHint("Search apps...");
+        searchBox.setHint(
+                "Search your world..."
+        );
+
         searchBox.setHintTextColor(
-                darkMode
-                        ? Color.rgb(145, 150, 160)
-                        : Color.rgb(125, 130, 140)
+                Color.argb(150, 255, 255, 255)
         );
 
-        searchBox.setTextColor(textColor());
+        searchBox.setTextColor(Color.WHITE);
+
+        searchBox.setBackgroundColor(
+                Color.TRANSPARENT
+        );
+
         searchBox.setPadding(
-                dp(18),
-                dp(4),
-                dp(18),
-                dp(4)
+                dp(48),
+                0,
+                dp(15),
+                0
         );
 
-        GradientDrawable searchBg = roundedBackground(
-                darkMode
-                        ? Color.rgb(28, 33, 43)
-                        : Color.WHITE,
-                darkMode
-                        ? Color.rgb(55, 62, 76)
-                        : Color.rgb(225, 229, 237),
-                32
-        );
-
-        searchBox.setBackground(searchBg);
-
-        LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(
+        FrameLayout.LayoutParams searchParams =
+                new FrameLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(54)
+                        dp(58)
                 );
 
-        params.setMargins(0, 0, 0, dp(18));
+        searchContainer.addView(
+                searchBox,
+                searchParams
+        );
 
-        root.addView(searchBox, params);
+        LinearLayout.LayoutParams outerParams =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        dp(60)
+                );
+
+        outerParams.setMargins(
+                0,
+                dp(4),
+                0,
+                dp(20)
+        );
+
+        content.addView(
+                searchContainer,
+                outerParams
+        );
 
         searchBox.addTextChangedListener(
                 new TextWatcher() {
@@ -266,7 +488,9 @@ public class MainActivity extends Activity {
                             int before,
                             int count) {
 
-                        showApps(s.toString());
+                        showApps(
+                                s.toString()
+                        );
                     }
 
                     @Override
@@ -277,506 +501,189 @@ public class MainActivity extends Activity {
         );
     }
 
+    private void createAppsTitle() {
+
+        LinearLayout row =
+                new LinearLayout(this);
+
+        row.setGravity(
+                Gravity.CENTER_VERTICAL
+        );
+
+        TextView title =
+                new TextView(this);
+
+        title.setText("YOUR APPS");
+        title.setTextSize(12);
+        title.setTypeface(null, 1);
+        title.setTextColor(
+                Color.argb(190, 255, 255, 255)
+        );
+        title.setLetterSpacing(0.12f);
+
+        row.addView(
+                title,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1
+                )
+        );
+
+        TextView line =
+                new TextView(this);
+
+        line.setText("●  ●  ●");
+        line.setTextSize(7);
+        line.setTextColor(
+                Color.argb(150, 255, 255, 255)
+        );
+
+        row.addView(line);
+
+        LinearLayout.LayoutParams params =
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                );
+
+        params.setMargins(
+                dp(3),
+                0,
+                dp(3),
+                dp(8)
+        );
+
+        content.addView(row, params);
+    }
+
     private void createAppArea() {
 
-        ScrollView scroll = new ScrollView(this);
+        appGrid =
+                new LinearLayout(this);
 
-        scroll.setFillViewport(true);
-        scroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        appGrid.setOrientation(
+                LinearLayout.VERTICAL
+        );
 
-        appGrid = new LinearLayout(this);
-        appGrid.setOrientation(LinearLayout.VERTICAL);
-
-        scroll.addView(
+        content.addView(
                 appGrid,
-                new ScrollView.LayoutParams(
+                new LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.WRAP_CONTENT
                 )
         );
-
-        LinearLayout.LayoutParams scrollParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        0,
-                        1
-                );
-
-        root.addView(scroll, scrollParams);
     }
 
-    private void createFooter() {
+    private void createFloatingDock() {
 
-        TextView footer = new TextView(this);
+        LinearLayout dock =
+                new LinearLayout(this);
 
-        footer.setText(
-                "Sunny UI  •  Designed for Android  •  V6"
+        dock.setOrientation(
+                LinearLayout.HORIZONTAL
         );
 
-        footer.setTextSize(12);
-        footer.setGravity(Gravity.CENTER);
-        footer.setPadding(0, dp(12), 0, dp(4));
-
-        footer.setTextColor(
-                darkMode
-                        ? Color.rgb(125, 135, 150)
-                        : Color.rgb(125, 132, 145)
+        dock.setGravity(
+                Gravity.CENTER
         );
 
-        root.addView(footer);
-    }
+        dock.setPadding(
+                dp(10),
+                dp(8),
+                dp(10),
+                dp(8)
+        );
 
-    private void loadApps() {
+        dock.setBackground(
+                glassBackground(34)
+        );
 
-        allApps.clear();
+        TextView home =
+                dockButton("⌂");
 
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        intent.addCategory(Intent.CATEGORY_LAUNCHER);
+        TextView search =
+                dockButton("⌕");
 
-        List<ResolveInfo> results =
-                pm.queryIntentActivities(intent, 0);
+        TextView settings =
+                dockButton("⚙");
 
-        for (ResolveInfo info : results) {
-
-            if (info.activityInfo == null) {
-                continue;
-            }
-
-            String packageName =
-                    info.activityInfo.packageName;
-
-            String label =
-                    info.loadLabel(pm).toString();
-
-            Drawable icon =
-                    info.loadIcon(pm);
-
-            Intent launchIntent =
-                    new Intent(Intent.ACTION_MAIN);
-
-            launchIntent.addCategory(
-                    Intent.CATEGORY_LAUNCHER
-            );
-
-            launchIntent.setPackage(packageName);
-
-            List<ResolveInfo> launchers =
-                    pm.queryIntentActivities(
-                            launchIntent,
-                            0
-                    );
-
-            if (!launchers.isEmpty()) {
-
-                ResolveInfo launcher =
-                        launchers.get(0);
-
-                Intent finalIntent =
-                        new Intent(Intent.ACTION_MAIN);
-
-                finalIntent.addCategory(
-                        Intent.CATEGORY_LAUNCHER
+        TextView mode =
+                dockButton(
+                        darkMode ? "☀" : "☾"
                 );
 
-                finalIntent.setClassName(
-                        packageName,
-                        launcher.activityInfo.name
-                );
+        dock.addView(home);
+        dock.addView(search);
+        dock.addView(settings);
+        dock.addView(mode);
 
-                allApps.add(
-                        new AppItem(
-                                label,
-                                packageName,
-                                icon,
-                                finalIntent
-                        )
-                );
-            }
-        }
-
-        Collections.sort(
-                allApps,
-                new Comparator<AppItem>() {
+        home.setOnClickListener(
+                new View.OnClickListener() {
                     @Override
-                    public int compare(
-                            AppItem a,
-                            AppItem b) {
-
-                        return a.name.compareToIgnoreCase(
-                                b.name
-                        );
+                    public void onClick(View v) {
+                        animateDockButton(v);
                     }
                 }
         );
 
-        showApps("");
-    }
-
-    private void showApps(String query) {
-
-        if (appGrid == null) {
-            return;
-        }
-
-        appGrid.removeAllViews();
-
-        String search =
-                query == null
-                        ? ""
-                        : query.trim().toLowerCase(
-                                Locale.getDefault()
-                        );
-
-        ArrayList<AppItem> filtered =
-                new ArrayList<>();
-
-        for (AppItem app : allApps) {
-
-            if (search.length() == 0
-                    || app.name.toLowerCase(
-                            Locale.getDefault()
-                    ).contains(search)) {
-
-                filtered.add(app);
-            }
-        }
-
-        int columns = 3;
-
-        LinearLayout row = null;
-
-        for (int i = 0; i < filtered.size(); i++) {
-
-            if (i % columns == 0) {
-
-                row = new LinearLayout(this);
-                row.setOrientation(
-                        LinearLayout.HORIZONTAL
-                );
-
-                row.setGravity(Gravity.CENTER);
-
-                appGrid.addView(
-                        row,
-                        new LinearLayout.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.WRAP_CONTENT
-                        )
-                );
-            }
-
-            View card =
-                    createAppCard(filtered.get(i));
-
-            LinearLayout.LayoutParams cardParams =
-                    new LinearLayout.LayoutParams(
-                            0,
-                            dp(128),
-                            1
-                    );
-
-            cardParams.setMargins(
-                    dp(5),
-                    dp(5),
-                    dp(5),
-                    dp(5)
-            );
-
-            row.addView(card, cardParams);
-        }
-
-        if (filtered.isEmpty()) {
-
-            TextView empty = new TextView(this);
-
-            empty.setText("No apps found");
-            empty.setTextSize(16);
-            empty.setGravity(Gravity.CENTER);
-            empty.setTextColor(textColor());
-
-            empty.setPadding(
-                    0,
-                    dp(50),
-                    0,
-                    dp(50)
-            );
-
-            appGrid.addView(empty);
-        }
-    }
-
-    private View createAppCard(final AppItem app) {
-
-        LinearLayout card =
-                new LinearLayout(this);
-
-        card.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        card.setGravity(Gravity.CENTER);
-
-        card.setPadding(
-                dp(8),
-                dp(10),
-                dp(8),
-                dp(8)
-        );
-
-        GradientDrawable background =
-                roundedBackground(
-                        darkMode
-                                ? Color.rgb(27, 32, 42)
-                                : Color.WHITE,
-                        darkMode
-                                ? Color.rgb(55, 62, 76)
-                                : Color.rgb(225, 229, 237),
-                        24
-                );
-
-        card.setBackground(background);
-        card.setElevation(dp(5));
-
-        ImageView icon =
-                new ImageView(this);
-
-        icon.setImageDrawable(app.icon);
-        icon.setScaleType(
-                ImageView.ScaleType.FIT_CENTER
-        );
-
-        LinearLayout.LayoutParams iconParams =
-                new LinearLayout.LayoutParams(
-                        dp(50),
-                        dp(50)
-                );
-
-        card.addView(icon, iconParams);
-
-        TextView name =
-                new TextView(this);
-
-        name.setText(app.name);
-        name.setTextSize(12);
-        name.setGravity(Gravity.CENTER);
-        name.setMaxLines(2);
-        name.setTextColor(textColor());
-
-        LinearLayout.LayoutParams nameParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                );
-
-        nameParams.setMargins(
-                0,
-                dp(8),
-                0,
-                0
-        );
-
-        card.addView(name, nameParams);
-
-        card.setOnClickListener(
+        search.setOnClickListener(
                 new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
 
-                        launchApp(app);
-                    }
-                }
-        );
-
-        card.setOnTouchListener(
-                new View.OnTouchListener() {
-
-                    @Override
-                    public boolean onTouch(
-                            View v,
-                            android.view.MotionEvent event) {
-
-                        if (event.getAction()
-                                == android.view.MotionEvent.ACTION_DOWN) {
-
-                            v.animate()
-                                    .scaleX(0.94f)
-                                    .scaleY(0.94f)
-                                    .setDuration(100)
-                                    .setInterpolator(
-                                            new DecelerateInterpolator()
-                                    )
-                                    .start();
-
-                        } else if (
-                                event.getAction()
-                                        == android.view.MotionEvent.ACTION_UP
-                                        ||
-                                event.getAction()
-                                        == android.view.MotionEvent.ACTION_CANCEL
-                        ) {
-
-                            v.animate()
-                                    .scaleX(1f)
-                                    .scaleY(1f)
-                                    .setDuration(150)
-                                    .setInterpolator(
-                                            new DecelerateInterpolator()
-                                    )
-                                    .start();
+                        if (searchBox != null) {
+                            searchBox.requestFocus();
                         }
 
-                        return false;
+                        animateDockButton(v);
                     }
                 }
         );
 
-        return card;
-    }
-
-    private void launchApp(AppItem app) {
-
-        try {
-
-            startActivity(app.intent);
-
-        } catch (Exception e) {
-
-            Toast.makeText(
-                    this,
-                    "Unable to open " + app.name,
-                    Toast.LENGTH_SHORT
-            ).show();
-        }
-    }
-
-    private void toggleMode() {
-
-        darkMode = !darkMode;
-
-        getSharedPreferences(
-                "sunny_ui",
-                MODE_PRIVATE
-        )
-                .edit()
-                .putBoolean("dark", darkMode)
-                .apply();
-
-        recreate();
-    }
-
-    private void updateTime() {
-
-        if (clockView == null) {
-            return;
-        }
-
-        String time =
-                new SimpleDateFormat(
-                        "hh:mm",
-                        Locale.getDefault()
-                ).format(new Date());
-
-        String date =
-                new SimpleDateFormat(
-                        "EEEE, dd MMMM yyyy",
-                        Locale.getDefault()
-                ).format(new Date());
-
-        clockView.setText(time);
-        dateView.setText(date);
-
-        handler.postDelayed(
-                new Runnable() {
+        settings.setOnClickListener(
+                new View.OnClickListener() {
                     @Override
-                    public void run() {
-                        updateTime();
+                    public void onClick(View v) {
+
+                        try {
+
+                            Intent intent =
+                                    new Intent(
+                                            android.provider.Settings
+                                                    .ACTION_SETTINGS
+                                    );
+
+                            startActivity(intent);
+
+                        } catch (Exception e) {
+                            Toast.makeText(
+                                    MainActivity.this,
+                                    "Settings unavailable",
+                                    Toast.LENGTH_SHORT
+                            ).show();
+                        }
                     }
-                },
-                1000
-        );
-    }
-
-    private GradientDrawable roundedBackground(
-            int fill,
-            int stroke,
-            int radius) {
-
-        GradientDrawable drawable =
-                new GradientDrawable();
-
-        drawable.setColor(fill);
-        drawable.setCornerRadius(dp(radius));
-
-        drawable.setStroke(
-                dp(1),
-                stroke
+                }
         );
 
-        return drawable;
-    }
+        mode.setOnClickListener(
+                new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
 
-    private int textColor() {
+                        darkMode = !darkMode;
 
-        return darkMode
-                ? Color.WHITE
-                : Color.rgb(30, 35, 45);
-    }
+                        getSharedPreferences(
+                                "sunny_v7",
+                                MODE_PRIVATE
+                        )
+                                .edit()
+                                .putBoolean(
+                                        "dark",
+                                        darkMode
+                                )
+                                .apply();
 
-    private int dp(int value) {
-
-        float density =
-                getResources()
-                        .getDisplayMetrics()
-                        .density;
-
-        return (int) (
-                value * density + 0.5f
-        );
-    }
-
-    @Override
-    protected void onResume() {
-
-        super.onResume();
-
-        if (pm != null) {
-
-            loadApps();
-
-            if (searchBox != null) {
-
-                showApps(
-                        searchBox.getText().toString()
-                );
-            }
-        }
-    }
-
-    @Override
-    protected void onDestroy() {
-
-        super.onDestroy();
-
-        handler.removeCallbacksAndMessages(null);
-    }
-
-    private static class AppItem {
-
-        String name;
-        String packageName;
-        Drawable icon;
-        Intent intent;
-
-        AppItem(
-                String name,
-                String packageName,
-                Drawable icon,
-                Intent intent) {
-
-            this.name = name;
-            this.packageName = packageName;
-            this.icon = icon;
-            this.intent = intent;
-        }
-    }
-}
+                        recreate();
+                   
