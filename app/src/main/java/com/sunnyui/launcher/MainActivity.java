@@ -15,7 +15,6 @@ import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.Window;
@@ -57,12 +56,6 @@ public class MainActivity extends Activity {
             new ArrayList<>();
 
     private boolean darkMode = false;
-
-    private int whiteGlass =
-            Color.argb(48, 255, 255, 255);
-
-    private int darkGlass =
-            Color.argb(62, 10, 15, 25);
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -280,7 +273,7 @@ public class MainActivity extends Activity {
         TextView vision =
                 new TextView(this);
 
-        vision.setText("VISION");
+        vision.setText("CRYSTAL");
         vision.setTextSize(11);
         vision.setTypeface(null, 1);
         vision.setTextColor(
@@ -513,7 +506,7 @@ public class MainActivity extends Activity {
         TextView title =
                 new TextView(this);
 
-        title.setText("YOUR APPS");
+        title.setText("CRYSTAL APPS");
         title.setTextSize(12);
         title.setTypeface(null, 1);
         title.setTextColor(
@@ -657,6 +650,7 @@ public class MainActivity extends Activity {
                             startActivity(intent);
 
                         } catch (Exception e) {
+
                             Toast.makeText(
                                     MainActivity.this,
                                     "Settings unavailable",
@@ -903,8 +897,8 @@ public class MainActivity extends Activity {
                 );
             }
 
-            View card =
-                    create3DIcon(
+            View crystalIcon =
+                    createCrystalIcon(
                             filtered.get(i)
                     );
 
@@ -922,7 +916,10 @@ public class MainActivity extends Activity {
                     dp(4)
             );
 
-            row.addView(card, params);
+            row.addView(
+                    crystalIcon,
+                    params
+            );
         }
 
         if (filtered.isEmpty()) {
@@ -948,211 +945,51 @@ public class MainActivity extends Activity {
         }
     }
 
-    private View create3DIcon(
+    /*
+     * SUNNY CRYSTAL 3D ICON ENGINE
+     *
+     * This replaces the old V7 icon card.
+     */
+    private View createCrystalIcon(
             final AppItem app) {
 
-        LinearLayout card =
-                new LinearLayout(this);
-
-        card.setOrientation(
-                LinearLayout.VERTICAL
-        );
-
-        card.setGravity(
-                Gravity.CENTER
-        );
-
-        card.setPadding(
-                dp(6),
-                dp(5),
-                dp(6),
-                dp(5)
-        );
-
-        card.setBackground(
-                glassBackground(24)
-        );
-
-        card.setElevation(
-                dp(10)
-        );
-
-        FrameLayout iconFrame =
-                new FrameLayout(this);
-
-        GradientDrawable outer =
-                new GradientDrawable(
-                        GradientDrawable.Orientation.TL_BR,
-                        new int[] {
-                                Color.argb(
-                                        120,
-                                        255,
-                                        255,
-                                        255
-                                ),
-                                Color.argb(
-                                        55,
-                                        255,
-                                        255,
-                                        255
-                                ),
-                                Color.argb(
-                                        35,
-                                        30,
-                                        40,
-                                        70
-                                )
-                        }
+        View crystal =
+                SunnyIconRenderer.create(
+                        this,
+                        app.icon,
+                        app.name
                 );
 
-        outer.setCornerRadius(
-                dp(21)
-        );
-
-        outer.setStroke(
-                dp(1),
-                Color.argb(
-                        145,
-                        255,
-                        255,
-                        255
-                )
-        );
-
-        iconFrame.setBackground(outer);
-        iconFrame.setElevation(dp(9));
-
-        ImageView icon =
-                new ImageView(this);
-
-        icon.setImageDrawable(
-                app.icon
-        );
-
-        icon.setScaleType(
-                ImageView.ScaleType.FIT_CENTER
-        );
-
-        FrameLayout.LayoutParams iconParams =
-                new FrameLayout.LayoutParams(
-                        dp(48),
-                        dp(48),
-                        Gravity.CENTER
-                );
-
-        iconFrame.addView(
-                icon,
-                iconParams
-        );
-
-        TextView shine =
-                new TextView(this);
-
-        shine.setText(" ");
-        shine.setBackground(
-                highlightBackground()
-        );
-
-        FrameLayout.LayoutParams shineParams =
-                new FrameLayout.LayoutParams(
-                        dp(38),
-                        dp(10),
-                        Gravity.TOP | Gravity.CENTER_HORIZONTAL
-                );
-
-        shineParams.topMargin =
-                dp(4);
-
-        iconFrame.addView(
-                shine,
-                shineParams
-        );
-
-        LinearLayout.LayoutParams frameParams =
-                new LinearLayout.LayoutParams(
-                        dp(62),
-                        dp(62)
-                );
-
-        card.addView(
-                iconFrame,
-                frameParams
-        );
-
-        TextView name =
-                new TextView(this);
-
-        name.setText(app.name);
-        name.setTextSize(10);
-        name.setGravity(Gravity.CENTER);
-        name.setTextColor(Color.WHITE);
-        name.setMaxLines(1);
-
-        LinearLayout.LayoutParams nameParams =
-                new LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dp(22)
-                );
-
-        card.addView(
-                name,
-                nameParams
-        );
-
-        card.setOnClickListener(
+        crystal.setOnClickListener(
                 new View.OnClickListener() {
+
                     @Override
                     public void onClick(View v) {
+
                         launchApp(app);
                     }
                 }
         );
 
-        card.setOnTouchListener(
-                new View.OnTouchListener() {
+        crystal.setOnLongClickListener(
+                new View.OnLongClickListener() {
 
                     @Override
-                    public boolean onTouch(
-                            View v,
-                            MotionEvent event) {
+                    public boolean onLongClick(
+                            View v) {
 
-                        if (event.getAction()
-                                == MotionEvent.ACTION_DOWN) {
+                        Toast.makeText(
+                                MainActivity.this,
+                                app.name,
+                                Toast.LENGTH_SHORT
+                        ).show();
 
-                            v.animate()
-                                    .scaleX(0.91f)
-                                    .scaleY(0.91f)
-                                    .translationY(
-                                            dp(3)
-                                    )
-                                    .setDuration(90)
-                                    .start();
-
-                        } else if (
-                                event.getAction()
-                                        == MotionEvent.ACTION_UP
-                                        ||
-                                event.getAction()
-                                        == MotionEvent.ACTION_CANCEL
-                        ) {
-
-                            v.animate()
-                                    .scaleX(1f)
-                                    .scaleY(1f)
-                                    .translationY(0)
-                                    .setDuration(180)
-                                    .setInterpolator(
-                                            new DecelerateInterpolator()
-                                    )
-                                    .start();
-                        }
-
-                        return false;
+                        return true;
                     }
                 }
         );
 
-        return card;
+        return crystal;
     }
 
     private GradientDrawable glassBackground(
@@ -1262,34 +1099,6 @@ public class MainActivity extends Activity {
         return bg;
     }
 
-    private GradientDrawable highlightBackground() {
-
-        GradientDrawable highlight =
-                new GradientDrawable(
-                        GradientDrawable.Orientation.TL_BR,
-                        new int[] {
-                                Color.argb(
-                                        125,
-                                        255,
-                                        255,
-                                        255
-                                ),
-                                Color.argb(
-                                        0,
-                                        255,
-                                        255,
-                                        255
-                                )
-                        }
-                );
-
-        highlight.setCornerRadius(
-                dp(8)
-        );
-
-        return highlight;
-    }
-
     private void launchApp(
             AppItem app) {
 
@@ -1336,8 +1145,10 @@ public class MainActivity extends Activity {
 
         handler.postDelayed(
                 new Runnable() {
+
                     @Override
                     public void run() {
+
                         updateClock();
                     }
                 },
